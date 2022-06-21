@@ -115,7 +115,7 @@ impl X509VerifyParamRef {
     ///
     /// This corresponds to [`X509_VERIFY_PARAM_set_flags`].
     ///
-    /// [`X509_VERIFY_PARAM_set_flags`]: https://www.openssl.org/docs/man1.1.0/crypto/X509_VERIFY_PARAM_set_flags.html
+    /// [`X509_VERIFY_PARAM_set_flags`]: https://www.openssl.org/docs/man1.1.1/man3/X509_VERIFY_PARAM_set_flags.html
     pub fn set_flags(&mut self, flags: X509VerifyFlags) -> Result<(), ErrorStack> {
         unsafe {
             cvt(ffi::X509_VERIFY_PARAM_set_flags(

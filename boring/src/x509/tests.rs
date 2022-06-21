@@ -442,9 +442,14 @@ fn test_revoked_serial_numbers() {
 
 #[test]
 fn test_serialize_crl() {
-    let crl_bytes = include_bytes!("../../test/crl.pem");
-    let serialized = X509CRL::from_pem(crl_bytes).unwrap().to_pem().unwrap();
-    assert_eq!(crl_bytes, serialized.as_slice());
+    let crl = include_bytes!("../../test/crl.pem");
+    let crl = X509CRL::from_pem(crl).unwrap();
+    let digest = hex::encode(crl.digest(MessageDigest::sha1()).unwrap());
+
+    let serialized = crl.to_pem().unwrap();
+    let crl_deserialized = X509CRL::from_pem(&serialized).unwrap();
+    let new_digest = crl_deserialized.digest(MessageDigest::sha1()).unwrap();
+    assert_eq!(digest, hex::encode(new_digest));
 }
 
 #[test]
