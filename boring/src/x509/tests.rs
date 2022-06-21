@@ -7,11 +7,13 @@ use crate::nid::Nid;
 use crate::pkey::{PKey, Private};
 use crate::rsa::Rsa;
 use crate::stack::Stack;
+use crate::x509::crl::X509CRL;
 use crate::x509::extension::{
     AuthorityKeyIdentifier, BasicConstraints, ExtendedKeyUsage, KeyUsage, SubjectAlternativeName,
     SubjectKeyIdentifier,
 };
 use crate::x509::store::X509StoreBuilder;
+use crate::x509::verify::X509VerifyFlags;
 use crate::x509::{X509Name, X509Req, X509StoreContext, X509VerifyResult, X509};
 
 fn pkey() -> PKey<Private> {
@@ -378,4 +380,109 @@ fn test_verify_fails() {
     assert!(!context
         .init(&store, &cert, &chain, |c| c.verify_cert())
         .unwrap());
+}
+
+#[test]
+fn test_verify_revoked() {
+    let cert = include_bytes!("../../test/cert.pem");
+    let cert = X509::from_pem(cert).unwrap();
+    let ca = include_bytes!("../../test/root-ca.pem");
+    let ca = X509::from_pem(ca).unwrap();
+    let crl = include_bytes!("../../test/crl.pem");
+    let crl = X509CRL::from_pem(crl).unwrap();
+    let chain = Stack::new().unwrap();
+
+    let mut store_bldr = X509StoreBuilder::new().unwrap();
+    store_bldr.add_cert(ca).unwrap();
+    store_bldr.add_crl(crl).unwrap();
+    store_bldr
+        .param_mut()
+        .set_flags(X509VerifyFlags::CRL_CHECK | X509VerifyFlags::CRL_CHECK_ALL)
+        .unwrap();
+    let store = store_bldr.build();
+
+    let mut context = X509StoreContext::new().unwrap();
+    assert!(!context
+        .init(&store, &cert, &chain, |c| c.verify_cert())
+        .unwrap());
+}
+
+#[test]
+fn test_crl_signature() {
+    let ca = include_bytes!("../../test/root-ca.pem");
+    let ca = X509::from_pem(ca).unwrap();
+
+    let crl = include_bytes!("../../test/bad_sig.pem");
+    let crl = X509CRL::from_pem(crl).unwrap();
+    assert!(!crl.verify(&ca.public_key().unwrap()).unwrap());
+
+    let crl = include_bytes!("../../test/crl.pem");
+    let crl = X509CRL::from_pem(crl).unwrap();
+    assert!(crl.verify(&ca.public_key().unwrap()).unwrap());
+}
+
+#[test]
+fn test_revoked_serial_numbers() {
+    let cert = include_bytes!("../../test/cert.pem");
+    let cert = X509::from_pem(cert).unwrap();
+    let cert_sn = cert.serial_number().to_bn().unwrap();
+
+    let crl = include_bytes!("../../test/crl.pem");
+    let crl = X509CRL::from_pem(crl).unwrap();
+
+    assert_eq!(
+        crl.revoked()
+            .unwrap()
+            .iter()
+            .filter(|revoked| revoked.serial_number().to_bn().unwrap() == cert_sn)
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn test_serialize_crl() {
+    let crl_bytes = include_bytes!("../../test/crl.pem");
+    let serialized = X509CRL::from_pem(crl_bytes).unwrap().to_pem().unwrap();
+    assert_eq!(crl_bytes, serialized.as_slice());
+}
+
+#[test]
+fn test_crl_extensions() {
+    let crl = include_bytes!("../../test/crl.pem");
+    let crl = X509CRL::from_pem(crl).unwrap();
+    let extensions = crl.extensions();
+    assert_eq!(
+        extensions
+            .unwrap()
+            .iter()
+            .filter(|ext| ext.object().nid() == Nid::AUTHORITY_KEY_IDENTIFIER)
+            .count(),
+        1
+    );
+    assert_eq!(
+        extensions
+            .unwrap()
+            .iter()
+            .filter(|ext| ext.object().nid() == Nid::CRL_NUMBER)
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn test_debug_crl() {
+    let crl = include_bytes!("../../test/crl.pem");
+    let crl = X509CRL::from_pem(crl).unwrap();
+    let debugged = format!("{:#?}", crl);
+    println!("{}", debugged);
+    assert!(debugged.contains(r#"countryName = "AU""#));
+    assert!(debugged.contains(r#"stateOrProvinceName = "Some-State""#));
+    assert!(debugged.contains(r#"organizationName = "Internet Widgits Pty Ltd""#));
+    assert!(debugged.contains(r#"last_update: Jun 21 20:22:02 2022 GMT"#));
+    assert!(debugged.contains(r#"next_update: Jun 18 20:22:02 2032 GMT"#));
+    assert!(debugged.contains(r#"revocation_date: Jun 21 20:21:55 2022 GMT"#));
+    assert!(debugged.contains(r#"serial_number: "8771f7bdee982fa5""#));
+    assert!(debugged.contains(r#"object_nid: "X509v3 Authority Key Identifier""#));
+    assert!(debugged.contains(r#"object_nid: "X509v3 CRL Number""#));
 }

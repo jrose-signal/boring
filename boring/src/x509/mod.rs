@@ -34,6 +34,7 @@ use crate::stack::{Stack, StackRef, Stackable};
 use crate::string::OpensslString;
 use crate::{cvt, cvt_n, cvt_p};
 
+pub mod crl;
 pub mod extension;
 pub mod store;
 pub mod verify;
@@ -792,6 +793,30 @@ impl X509Extension {
     }
 }
 
+impl X509ExtensionRef {
+    pub fn critical(&self) -> bool {
+        unsafe { ffi::X509_EXTENSION_get_critical(self.as_ptr()) != 0 }
+    }
+
+    pub fn object(&self) -> &Asn1ObjectRef {
+        unsafe { Asn1ObjectRef::from_ptr(ffi::X509_EXTENSION_get_object(self.as_ptr())) }
+    }
+
+    pub fn data(&self) -> &Asn1StringRef {
+        unsafe { Asn1StringRef::from_ptr(ffi::X509_EXTENSION_get_data(self.as_ptr())) }
+    }
+}
+
+impl fmt::Debug for X509ExtensionRef {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter
+            .debug_struct("X509Extension")
+            .field("critical", &self.critical())
+            .field("object_nid", &self.object().nid().long_name().unwrap_or(""))
+            .finish()
+    }
+}
+
 /// A builder used to construct an `X509Name`.
 pub struct X509NameBuilder(X509Name);
 
@@ -1400,6 +1425,17 @@ impl X509ObjectRef {
             }
         }
     }
+
+    // pub fn x509CRL(&self) -> Option<&X509CRLRef> {
+    //     unsafe {
+    //         let ptr = X509_OBJECT_get0_X509_CRL(self.as_ptr());
+    //         if ptr.is_null() {
+    //             None
+    //         } else {
+    //             Some(X509Ref::from_ptr(ptr))
+    //         }
+    //     }
+    // }
 }
 
 impl Stackable for X509Object {
