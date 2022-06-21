@@ -794,14 +794,31 @@ impl X509Extension {
 }
 
 impl X509ExtensionRef {
+    /// Returns whether this extension is critical
+    ///
+    /// This corresponds to [`X509_EXTENSION_get_critical`].
+    ///
+    /// [`X509_EXTENSION_get_critical`]: https://www.openssl.org/docs/man1.1.1/man3/X509_EXTENSION_get_critical
     pub fn critical(&self) -> bool {
         unsafe { ffi::X509_EXTENSION_get_critical(self.as_ptr()) != 0 }
     }
 
+    /// Returns the `Asn1Object` of this `X509Extension`
+    ///
+    /// This can be used to determine the `Nid` of this extension
+    ///
+    /// This corresponds to [`X509_EXTENSION_get_object`].
+    ///
+    /// [`X509_EXTENSION_get_object`]: https://www.openssl.org/docs/man1.1.1/man3/X509_EXTENSION_get_object
     pub fn object(&self) -> &Asn1ObjectRef {
         unsafe { Asn1ObjectRef::from_ptr(ffi::X509_EXTENSION_get_object(self.as_ptr())) }
     }
 
+    /// Returns the `data` of this `X509Extension`
+    ///
+    /// This corresponds to [`X509_EXTENSION_get_data`].
+    ///
+    /// [`X509_EXTENSION_get_data`]: https://www.openssl.org/docs/man1.1.1/man3/X509_EXTENSION_get_data
     pub fn data(&self) -> &Asn1StringRef {
         unsafe { Asn1StringRef::from_ptr(ffi::X509_EXTENSION_get_data(self.as_ptr())) }
     }
@@ -1425,17 +1442,6 @@ impl X509ObjectRef {
             }
         }
     }
-
-    // pub fn x509CRL(&self) -> Option<&X509CRLRef> {
-    //     unsafe {
-    //         let ptr = X509_OBJECT_get0_X509_CRL(self.as_ptr());
-    //         if ptr.is_null() {
-    //             None
-    //         } else {
-    //             Some(X509Ref::from_ptr(ptr))
-    //         }
-    //     }
-    // }
 }
 
 impl Stackable for X509Object {
