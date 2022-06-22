@@ -194,15 +194,20 @@ fn get_boringssl_cmake_config() -> cmake::Config {
         }
 
         _ => {
-            // Configure BoringSSL for building on 32-bit non-windows platforms.
-            if arch == "x86" && os != "windows" {
-                boringssl_cmake.define(
-                    "CMAKE_TOOLCHAIN_FILE",
-                    pwd.join(BORING_SSL_PATH)
-                        .join("src/util/32-bit-toolchain.cmake")
-                        .as_os_str(),
-                );
-            }
+            // if std::env::var("HOST").unwrap() != std::env::var("TARGET").unwrap() {
+                let cmake_toolchain_file = match (arch.as_str(), os.as_str()) {
+                    ("x86", "windows") => None,
+                    ("x86", _) => Some(
+                        pwd.join(BORING_SSL_PATH)
+                            .join("src/util/32-bit-toolchain.cmake"),
+                    ),
+                    ("aarch64", _) => Some(pwd.join("cmake/aarch64.cmake")),
+                    _ => Some(pwd),
+                };
+                if let Some(toolchain_file) = cmake_toolchain_file {
+                    boringssl_cmake.define("CMAKE_TOOLCHAIN_FILE", toolchain_file.as_os_str());
+                }
+            // }
 
             boringssl_cmake
         }
